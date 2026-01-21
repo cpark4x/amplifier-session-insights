@@ -48,10 +48,31 @@ class PrivacyConfig:
 class SessionLearningConfig:
     """Configuration for session learning analysis."""
 
-    # Minimum turns before generating insights (avoid trivial sessions)
-    min_turns_for_analysis: int = 3
-    # Minimum duration in seconds (avoid quick Q&A)
-    min_duration_seconds: int = 60
+    # === Metrics Capture (always cheap) ===
+    # Always save metrics regardless of session length
+    always_save_metrics: bool = True
+    # Minimum turns before saving metrics (even when always_save_metrics=True)
+    min_turns_for_metrics: int = 2
+    # Minimum duration for metrics (seconds)
+    min_duration_for_metrics: int = 30
+
+    # === LLM Analysis (costs tokens) ===
+    # LLM analysis mode: "automatic", "threshold", "on_demand"
+    #   - automatic: Run LLM analysis on all qualifying sessions
+    #   - threshold: Only run LLM analysis on substantive sessions
+    #   - on_demand: Never auto-run, only when user requests
+    llm_analysis_mode: str = "threshold"
+    # Minimum turns for LLM analysis (when mode is "threshold" or "automatic")
+    min_turns_for_llm_analysis: int = 5
+    # Minimum duration for LLM analysis in seconds (when mode is "threshold")
+    min_duration_for_llm_analysis: int = 300  # 5 minutes
+
+    # === Legacy (for backward compatibility) ===
+    # These map to the new settings
+    min_turns_for_analysis: int = 3  # Maps to min_turns_for_metrics
+    min_duration_seconds: int = 60  # Maps to min_duration_for_metrics
+
+    # === Processing Limits ===
     # Maximum events to process (handle large sessions gracefully)
     max_events_to_process: int = 1000
     # Timeout for LLM analysis (don't block forever)
@@ -574,12 +595,65 @@ class InsightsGenerator:
 # ============================================================================
 
 
+@dataclass
+class SessionMetricsOnly:
+    """Lightweight metrics-only storage (no LLM analysis)."""
+
+    session_id: str
+    captured_at: str
+    metrics: dict[str, Any]
+    privacy_level: str
+
+
 class InsightsStorage:
     """Handles storing and retrieving session insights."""
 
     def __init__(self, config: SessionLearningConfig):
         self.config = config
         self.insights_dir = Path.home() / ".amplifier" / "insights" / "sessions"
+        self.metrics_dir = Path.home() / ".amplifier" / "insights" / "metrics"
+
+    def save_metrics_only(self, metrics: SessionMetrics) -> Path | None:
+        """Save metrics without LLM analysis (lightweight, cheap)."""
+        try:
+            self.metrics_dir.mkdir(parents=True, exist_ok=True)
+            file_path = self.metrics_dir / f"{metrics.session_id}.json"
+
+            metrics_dict = {
+                "session_id": metrics.session_id,
+                "captured_at": datetime.now(UTC).isoformat(),
+                "metrics": {
+                    "duration_seconds": metrics.duration_seconds,
+                    "turn_count": metrics.turn_count,
+                    "tool_usage": metrics.tool_usage,
+                    "files_read_count": len(metrics.files_read),
+                    "files_modified_count": len(metrics.files_modified),
+                    "files_read": metrics.files_read[:20],  # Limit for storage
+                    "files_modified": metrics.files_modified[:20],
+                    "errors_encountered": metrics.errors_encountered,
+                    "llm_requests": metrics.llm_requests,
+                    "total_input_tokens": metrics.total_input_tokens,
+                    "total_output_tokens": metrics.total_output_tokens,
+                    "total_tokens": metrics.total_input_tokens + metrics.total_output_tokens,
+                    "model_used": metrics.model_used,
+                    "started_at": metrics.started_at,
+                    "ended_at": metrics.ended_at,
+                },
+                "privacy_level": self.config.privacy.level,
+                "has_llm_analysis": False,
+            }
+
+            # Atomic write
+            temp_path = file_path.with_suffix(".tmp")
+            temp_path.write_text(json.dumps(metrics_dict, indent=2))
+            temp_path.replace(file_path)
+
+            logger.info(f"Saved metrics for session {metrics.session_id[:8]}")
+            return file_path
+
+        except OSError as e:
+            logger.error(f"Failed to save metrics: {e}")
+            return None
 
     def save_insights(self, insights: SessionInsights) -> Path | None:
         """Save insights to file."""
@@ -692,17 +766,45 @@ class SessionLearningHook:
     async def _analyze_session(
         self, session_id: str, session_dir: Path, metadata: dict
     ) -> None:
-        """Perform session analysis."""
+        """Perform session analysis with tiered capture."""
         # Extract metrics
         metrics = self.extractor.extract_metrics(session_dir, metadata)
         if not metrics:
             logger.debug(f"Could not extract metrics for session {session_id[:8]}")
             return
 
-        # Check duration threshold
-        if metrics.duration_seconds < self.config.min_duration_seconds:
+        # === TIER 1: Always save metrics (cheap) ===
+        if self.config.always_save_metrics:
+            # Check minimum thresholds for metrics
+            if (
+                metrics.turn_count >= self.config.min_turns_for_metrics
+                and metrics.duration_seconds >= self.config.min_duration_for_metrics
+            ):
+                self.storage.save_metrics_only(metrics)
+                logger.debug(f"Saved metrics for session {session_id[:8]}")
+
+        # === TIER 2: LLM analysis (costs tokens) ===
+        should_run_llm = False
+
+        if self.config.llm_analysis_mode == "automatic":
+            # Run on all sessions meeting basic thresholds
+            should_run_llm = (
+                metrics.turn_count >= self.config.min_turns_for_analysis
+                and metrics.duration_seconds >= self.config.min_duration_seconds
+            )
+        elif self.config.llm_analysis_mode == "threshold":
+            # Run only on substantive sessions
+            should_run_llm = (
+                metrics.turn_count >= self.config.min_turns_for_llm_analysis
+                and metrics.duration_seconds >= self.config.min_duration_for_llm_analysis
+            )
+        # "on_demand" mode: never auto-run LLM analysis
+
+        if not should_run_llm:
             logger.debug(
-                f"Session {session_id[:8]} too short ({metrics.duration_seconds}s)"
+                f"Skipping LLM analysis for session {session_id[:8]} "
+                f"(mode={self.config.llm_analysis_mode}, "
+                f"turns={metrics.turn_count}, duration={metrics.duration_seconds}s)"
             )
             return
 
@@ -715,7 +817,7 @@ class SessionLearningHook:
             logger.debug(f"Could not generate insights for session {session_id[:8]}")
             return
 
-        # Store insights
+        # Store full insights (overwrites metrics-only if exists)
         self.storage.save_insights(insights)
 
         # Emit event for other hooks/tools
@@ -795,12 +897,26 @@ async def mount(
     """Mount the session learning hook module.
 
     Config options:
-        min_turns_for_analysis: int (default: 3) - Minimum turns before analyzing
-        min_duration_seconds: int (default: 60) - Minimum session duration
+        # Metrics capture (always cheap)
+        always_save_metrics: bool (default: True) - Always save metrics
+        min_turns_for_metrics: int (default: 2) - Minimum turns for metrics
+        min_duration_for_metrics: int (default: 30) - Minimum seconds for metrics
+
+        # LLM analysis (costs tokens)
+        llm_analysis_mode: str (default: "threshold") - "automatic", "threshold", "on_demand"
+        min_turns_for_llm_analysis: int (default: 5) - Minimum turns for LLM
+        min_duration_for_llm_analysis: int (default: 300) - Minimum seconds for LLM (5 min)
+
+        # Legacy (backward compatible)
+        min_turns_for_analysis: int (default: 3) - Maps to min_turns_for_metrics
+        min_duration_seconds: int (default: 60) - Maps to min_duration_for_metrics
+
+        # Processing
         max_events_to_process: int (default: 1000) - Limit for large sessions
         analysis_timeout_seconds: int (default: 60) - LLM call timeout
         run_in_background: bool (default: True) - Non-blocking analysis
 
+        # Privacy
         privacy.level: str (default: "self") - Privacy level
         privacy.include_file_paths: bool (default: True)
         privacy.include_code_snippets: bool (default: False)
@@ -829,8 +945,18 @@ async def mount(
         )
 
     hook_config = SessionLearningConfig(
+        # Metrics capture
+        always_save_metrics=config.get("always_save_metrics", True),
+        min_turns_for_metrics=config.get("min_turns_for_metrics", 2),
+        min_duration_for_metrics=config.get("min_duration_for_metrics", 30),
+        # LLM analysis
+        llm_analysis_mode=config.get("llm_analysis_mode", "threshold"),
+        min_turns_for_llm_analysis=config.get("min_turns_for_llm_analysis", 5),
+        min_duration_for_llm_analysis=config.get("min_duration_for_llm_analysis", 300),
+        # Legacy
         min_turns_for_analysis=config.get("min_turns_for_analysis", 3),
         min_duration_seconds=config.get("min_duration_seconds", 60),
+        # Processing
         max_events_to_process=config.get("max_events_to_process", 1000),
         analysis_timeout_seconds=config.get("analysis_timeout_seconds", 60),
         run_in_background=config.get("run_in_background", True),
@@ -850,11 +976,13 @@ async def mount(
 
     return {
         "name": "hooks-session-learning",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "description": "Session analysis and learning insights generation",
         "config": {
-            "min_turns_for_analysis": hook_config.min_turns_for_analysis,
-            "min_duration_seconds": hook_config.min_duration_seconds,
+            "always_save_metrics": hook_config.always_save_metrics,
+            "llm_analysis_mode": hook_config.llm_analysis_mode,
+            "min_turns_for_metrics": hook_config.min_turns_for_metrics,
+            "min_turns_for_llm_analysis": hook_config.min_turns_for_llm_analysis,
             "run_in_background": hook_config.run_in_background,
             "privacy_level": hook_config.privacy.level,
         },

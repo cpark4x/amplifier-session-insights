@@ -4,7 +4,7 @@
 
 ## What It Does
 
-### On-Demand Analysis (New!)
+### On-Demand Analysis
 
 Ask for insights anytime during a session:
 
@@ -20,12 +20,14 @@ You'll get:
 - **Pace assessment** - Fast, moderate, or deliberate
 - **Tips** - Contextual suggestions for improvement
 
-### Automatic End-of-Session Analysis
+### Automatic End-of-Session Capture
 
 When a session ends, automatically captures:
-1. **Metrics** - Duration, tools used, files modified, tokens consumed
-2. **Insights** - Summary, what went well, areas to improve, tips
-3. **Storage** - Privacy-first, all data stays on your machine
+
+| What | Cost | When |
+|------|------|------|
+| **Metrics** (duration, tools, tokens) | Free (~1KB) | Always (2+ turns) |
+| **LLM Insights** (summary, tips) | ~$0.01-0.05 | Substantive sessions (5+ turns, 5+ min) |
 
 ## Quick Start
 
@@ -48,8 +50,12 @@ Add to `~/.amplifier/config.yaml`:
 ```yaml
 modules:
   hooks-session-learning:
-    min_turns_for_analysis: 3
-    min_duration_seconds: 60
+    # Metrics always saved (cheap)
+    always_save_metrics: true
+    
+    # LLM analysis mode: "automatic", "threshold", "on_demand"
+    llm_analysis_mode: "threshold"  # Only substantive sessions
+    
   tool-session-insights: {}
 ```
 
@@ -62,16 +68,75 @@ modules:
 
 **After a session:**
 ```bash
+# Metrics (always saved)
+ls ~/.amplifier/insights/metrics/
+
+# Full insights (LLM analysis)
 ls ~/.amplifier/insights/sessions/
-cat ~/.amplifier/insights/sessions/<session-id>.json | jq
 ```
+
+## Configuration
+
+### Tiered Capture (Recommended)
+
+```yaml
+modules:
+  hooks-session-learning:
+    # === Metrics (always cheap, ~1KB per session) ===
+    always_save_metrics: true
+    min_turns_for_metrics: 2
+    min_duration_for_metrics: 30  # seconds
+    
+    # === LLM Analysis (costs tokens) ===
+    # Modes:
+    #   "automatic"  - Run on all qualifying sessions
+    #   "threshold"  - Only substantive sessions (recommended)
+    #   "on_demand"  - Never auto-run, only when requested
+    llm_analysis_mode: "threshold"
+    min_turns_for_llm_analysis: 5
+    min_duration_for_llm_analysis: 300  # 5 minutes
+```
+
+### LLM Analysis Modes
+
+| Mode | When LLM Runs | Best For |
+|------|---------------|----------|
+| `automatic` | Every session ≥3 turns | Power users, cost not a concern |
+| `threshold` | Sessions ≥5 turns AND ≥5 min | Most users (default) |
+| `on_demand` | Only when you ask | Cost-conscious, occasional use |
+
+### Privacy Settings
+
+```yaml
+privacy:
+  session_learning:
+    level: "self"              # "self", "team", "public"
+    include_file_paths: true
+    include_code_snippets: false
+    redact_sensitive: true
+```
+
+## Storage
+
+```
+~/.amplifier/insights/
+├── metrics/           # Lightweight metrics (always saved)
+│   └── <session-id>.json
+└── sessions/          # Full insights with LLM analysis
+    └── <session-id>.json
+```
+
+**Storage cost:**
+- 1 session = ~1-2 KB
+- 100 sessions/month = ~200 KB
+- 1 year = ~2.4 MB
 
 ## Modules
 
 | Module | Type | Purpose |
 |--------|------|---------|
-| `hooks-session-learning` | Hook | Auto-capture insights at session end |
-| `tool-session-insights` | Tool | On-demand analysis during sessions |
+| `hooks-session-learning` | Hook | Auto-capture at session end |
+| `tool-session-insights` | Tool | On-demand analysis |
 
 ## Documentation
 
@@ -82,20 +147,6 @@ See [docs/](docs/) for full documentation:
 - [Success Metrics](docs/01-vision/03-SUCCESS-METRICS.md) - How we measure success
 - [Requirements](docs/02-requirements/) - Epics and user stories
 
-## Project Structure
-
-```
-amplifier-session-insights/
-├── README.md                 # This file
-├── docs/                     # Documentation
-│   ├── 01-vision/           # Vision, principles, metrics
-│   ├── 02-requirements/     # Epics and user stories
-│   └── 07-templates/        # Doc templates
-└── modules/
-    ├── hooks-session-learning/   # End-of-session capture
-    └── tool-session-insights/    # On-demand analysis
-```
-
 ## Roadmap
 
 | Version | Focus | Status |
@@ -103,14 +154,6 @@ amplifier-session-insights/
 | V1 | Personal Insights | 🟡 In Progress |
 | V2 | Learning Loop | ⏳ Planned |
 | V3 | Team Learning | ⏳ Planned |
-
-## Privacy
-
-- **Default:** All data stays local (`~/.amplifier/insights/`)
-- **No network calls** without explicit consent
-- **Granular controls** for what's captured and shared
-
-See [Privacy Controls](docs/02-requirements/user-stories/01-session-insights/01-05-privacy-controls.md) for details.
 
 ## Contributing
 
