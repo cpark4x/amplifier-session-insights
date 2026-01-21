@@ -1,4 +1,4 @@
-# Session Learning Documentation
+# Amplifier Session Insights Documentation
 
 ## Vision
 

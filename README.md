@@ -1,10 +1,10 @@
-# Session Learning
+# Amplifier Session Insights
 
 **A system that helps people improve how they work with AI by capturing insights from every session and turning them into actionable learning.**
 
 ## What It Does
 
-When an AI session ends, Session Learning automatically:
+When an AI session ends, Amplifier Session Insights automatically:
 1. **Extracts metrics** - Duration, tools used, files modified, tokens consumed
 2. **Generates insights** - Summary, what went well, areas to improve, tips
 3. **Stores locally** - Privacy-first, all data stays on your machine
@@ -52,13 +52,13 @@ See [docs/](docs/) for full documentation:
 ## Project Structure
 
 ```
-session-learning/
+amplifier-session-insights/
 ├── README.md                 # This file
 ├── docs/                     # Documentation
 │   ├── 01-vision/           # Vision, principles, metrics
 │   ├── 02-requirements/     # Epics and user stories
 │   └── 07-templates/        # Doc templates
-└── modules/                  # Implementation (future)
+└── modules/                  # Implementation
     └── hooks-session-learning/
 ```
 
@@ -77,3 +77,9 @@ session-learning/
 - **Granular controls** for what's captured and shared
 
 See [Privacy Controls](docs/02-requirements/user-stories/01-session-insights/01-05-privacy-controls.md) for details.
+
+## Contributing
+
+This project is maintained by [@cpark4x](https://github.com/cpark4x). 
+
+If you're interested in having this included in [Amplifier Foundation](https://github.com/microsoft/amplifier-foundation), please reach out!

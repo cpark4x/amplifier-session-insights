@@ -1,8 +1,8 @@
-# Session Learning: Vision
+# Amplifier Session Insights: Vision
 
 **A system that helps people improve how they work with AI by capturing insights from every session and turning them into actionable learning.**
 
-_(Product name: Session Learning | Project codename: Session Learning)_
+_(Product name: Amplifier Session Insights | Project codename: Amplifier Session Insights)_
 
 **Owner:** Chris Park
 **Contributors:** -
@@ -13,7 +13,7 @@ _(Product name: Session Learning | Project codename: Session Learning)_
 
 ## Summary
 
-Session Learning solves the problem that AI sessions are ephemeral—you have a great session, learn something, make progress, and then it's gone. No memory of what worked, no record of decisions made, no way to get better over time. We're building a system that captures session insights automatically, helps you reflect on your approach, and creates a learning loop that makes every future session more effective.
+Amplifier Session Insights solves the problem that AI sessions are ephemeral—you have a great session, learn something, make progress, and then it's gone. No memory of what worked, no record of decisions made, no way to get better over time. We're building a system that captures session insights automatically, helps you reflect on your approach, and creates a learning loop that makes every future session more effective.
 
 ---
 
@@ -117,9 +117,9 @@ Session data is valuable not for auditing or analytics, but for **learning**. Ev
 
 **The difference:**
 - **Analytics approach**: "You used 150K tokens across 45 turns"
-- **Session Learning approach**: "You're most effective in planning sessions. In debugging, you tend to explore too long before narrowing. Here's a pattern that worked last time..."
+- **Amplifier Session Insights approach**: "You're most effective in planning sessions. In debugging, you tend to explore too long before narrowing. Here's a pattern that worked last time..."
 
-Session Learning is built for **improvement**, not **measurement**.
+Amplifier Session Insights is built for **improvement**, not **measurement**.
 
 ---
 
@@ -128,7 +128,7 @@ Session Learning is built for **improvement**, not **measurement**.
 #### 1. Automatic Capture
 
 **The old way:** Manual journaling, hoping you remember what worked
-**The Session Learning way:** Insights extracted automatically at session end
+**The Amplifier Session Insights way:** Insights extracted automatically at session end
 
 - Zero effort from users
 - Captures what you'd forget to write down
@@ -137,7 +137,7 @@ Session Learning is built for **improvement**, not **measurement**.
 #### 2. Privacy-First Sharing
 
 **The old way:** Share everything or nothing
-**The Session Learning way:** Structured sharing with granular consent
+**The Amplifier Session Insights way:** Structured sharing with granular consent
 
 | Level | What's Shared | Use Case |
 |-------|---------------|----------|
@@ -150,7 +150,7 @@ Users control exactly what's shared at each level.
 #### 3. Active Learning Loop
 
 **The old way:** Past sessions are read-only archives
-**The Session Learning way:** Past insights actively improve future sessions
+**The Amplifier Session Insights way:** Past insights actively improve future sessions
 
 - Relevant tips surfaced at session start
 - Patterns from similar past work injected as context
@@ -259,7 +259,7 @@ Teams that want to build organizational capability with AI.
 - [Epic 01: Session Insights](../02-requirements/epics/01-session-insights.md) - Core insight capture
 
 **Implementation:**
-- Module: `~/amplifier/foundation/modules/hooks-session-learning/`
+- Module: `~/amplifier/foundation/modules/hooks-amplifier-session-insights/`
 
 ---
 
