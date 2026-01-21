@@ -4,18 +4,41 @@
 
 ## What It Does
 
-When an AI session ends, Amplifier Session Insights automatically:
-1. **Extracts metrics** - Duration, tools used, files modified, tokens consumed
-2. **Generates insights** - Summary, what went well, areas to improve, tips
-3. **Stores locally** - Privacy-first, all data stays on your machine
+### On-Demand Analysis (New!)
+
+Ask for insights anytime during a session:
+
+```
+"How's this session going?"
+"Show me session insights"
+"What are my metrics so far?"
+```
+
+You'll get:
+- **Duration & turns** - How long, how many exchanges
+- **Tool usage** - What tools you're using most
+- **Pace assessment** - Fast, moderate, or deliberate
+- **Tips** - Contextual suggestions for improvement
+
+### Automatic End-of-Session Analysis
+
+When a session ends, automatically captures:
+1. **Metrics** - Duration, tools used, files modified, tokens consumed
+2. **Insights** - Summary, what went well, areas to improve, tips
+3. **Storage** - Privacy-first, all data stays on your machine
 
 ## Quick Start
 
-### 1. Install the module
+### 1. Install both modules
 
 ```bash
-cd modules/hooks-session-learning
-pip install -e .
+cd ~/projects/amplifier-session-insights/modules
+
+# Hook for automatic end-of-session capture
+cd hooks-session-learning && pip install -e . && cd ..
+
+# Tool for on-demand analysis
+cd tool-session-insights && pip install -e . && cd ..
 ```
 
 ### 2. Enable in config
@@ -27,18 +50,28 @@ modules:
   hooks-session-learning:
     min_turns_for_analysis: 3
     min_duration_seconds: 60
+  tool-session-insights: {}
 ```
 
-### 3. Use Amplifier normally
+### 3. Use it!
 
-Insights are generated automatically when sessions end.
+**During a session:**
+```
+"Show me my session insights"
+```
 
-### 4. Review insights
-
+**After a session:**
 ```bash
 ls ~/.amplifier/insights/sessions/
-cat ~/.amplifier/insights/sessions/<session-id>.json
+cat ~/.amplifier/insights/sessions/<session-id>.json | jq
 ```
+
+## Modules
+
+| Module | Type | Purpose |
+|--------|------|---------|
+| `hooks-session-learning` | Hook | Auto-capture insights at session end |
+| `tool-session-insights` | Tool | On-demand analysis during sessions |
 
 ## Documentation
 
@@ -58,8 +91,9 @@ amplifier-session-insights/
 │   ├── 01-vision/           # Vision, principles, metrics
 │   ├── 02-requirements/     # Epics and user stories
 │   └── 07-templates/        # Doc templates
-└── modules/                  # Implementation
-    └── hooks-session-learning/
+└── modules/
+    ├── hooks-session-learning/   # End-of-session capture
+    └── tool-session-insights/    # On-demand analysis
 ```
 
 ## Roadmap
